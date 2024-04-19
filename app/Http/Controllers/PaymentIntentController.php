@@ -18,6 +18,7 @@ class PaymentIntentController extends Controller
         $user = Auth::user();
         if($user)
         {
+            $cart = (new CartController())->getUserCart($user);
             Stripe::setApiKey(config('services.stripe.secret'));
 
             $amount  = (float)number_format($this->getAmountOfTheProduct($user), 2, '.', '') * 100;
@@ -29,7 +30,7 @@ class PaymentIntentController extends Controller
                     'currency' => $currency,
                 ]);
 
-                return response()->json(['clientSecret' => $paymentIntent->client_secret , $amount]);
+                return response()->json(['clientSecret' => $paymentIntent->client_secret , $amount , 'cart'=>$cart]);
             } catch (\Exception $e) {
                 return response()->json(['error' => $e->getMessage() , $amount], 500);
             }
@@ -39,7 +40,7 @@ class PaymentIntentController extends Controller
         }
     }
 
-    private function getAmountOfTheProduct($user)
+    public function  getAmountOfTheProduct($user)
     {
         $discount = 0 ;
         $discountForEachProduct = 0.5 ;
@@ -58,7 +59,7 @@ class PaymentIntentController extends Controller
         return $this->AmountAfterDiscount($TotalPrice , $discount);
     }
 
-    private function AmountAfterDiscount($totalPrice , $discount)
+    public static function AmountAfterDiscount($totalPrice , $discount)
     {
         $maxDiscount = 7;
         if($discount > 0 && $discount < $maxDiscount )
@@ -66,7 +67,7 @@ class PaymentIntentController extends Controller
             return $totalPrice -( $totalPrice * ($discount / 100));
         }
 
-        if($discount < 0 && $discount >= $maxDiscount)
+        if($discount >= $maxDiscount)
         {
             return ($totalPrice - ($totalPrice * ($maxDiscount / 100)));
         }

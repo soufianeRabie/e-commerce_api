@@ -11,12 +11,18 @@ class Product extends Model
     use HasFactory , SoftDeletes;
 
     protected  $fillable =[
-        "title","description","price","isSold" , "oldPrice","rating","image"
+        "title","description","price","isSold" , "oldPrice","rating","quantity"
     ];
 
     protected $casts = [
         'isSold' => 'boolean',
         'oldPrice' => 'decimal:2',
     ];
+
+    public function images()
+    {
+        return $this->hasMany(product_images::class );
+    }
+
 
 }

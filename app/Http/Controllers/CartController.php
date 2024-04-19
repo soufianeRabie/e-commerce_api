@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Guest_basket;
+use App\Models\OnlineOrders;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\User_basket;
 use Illuminate\Http\Request;
@@ -15,26 +17,49 @@ class CartController extends Controller
 {
     public function addToCart(Request $request)
     {
+
         $ipAddress = $request->getClientIp();
         $product_id = $request->input("product_id");
         $user_id = $request->input("user_id");
-        $quantity = $request->input('quantity' ,'');
+        $quantity = $request->input('quantity' ,1);
         $user = \App\Models\User::find($user_id);
-        $quantity  = $quantity === "" ?1 : $quantity;
+
+        $productOrigin = Product::where('id',$product_id)->first();
+        if(!$productOrigin)
+        {
+            return response()->json(['error' =>'product dont exist'],401);
+        }
+
         if(!is_numeric($quantity))
         {
             return response()->json(["error"=>'quantity must be a number' , $quantity] , 500);
-        }else{
+        }
+
+
+
             if(!$user)
             {
+                $ProductToAdd = Guest_basket::where('product_id' ,$product_id)
+                    ->where('ip_address' , $ipAddress)
+                    ->first();
+                if($ProductToAdd &&( $productOrigin->quantity < ($ProductToAdd->quantity + $quantity)))
+                {
+                    return response()->json(['error' =>'quantity must be less than or equal to product quantity'],401);
+                }
                 $product = $this->AddToGuestCart($product_id , $ipAddress , $quantity);
                 return response()->json($product);
             }else{
+                $ProductToAdd = User_basket::where('product_id' ,$product_id)
+                    ->where('user_id' , $user->id)
+                    ->first();
+                if($ProductToAdd &&( $productOrigin->quantity < ($ProductToAdd->quantity + $quantity)))
+                {
+                    return response()->json(['error' =>'quantity must be less than or equal to product quantity' ],401);
+                }
                 $product = $this->AddToUserCart($product_id , $ipAddress , $user , $quantity);
                 return response()->json($product);
             }
         }
-    }
     public function removeProductFromCart(Request $request)
     {
         $user_id = $request->input('user_id');
@@ -99,11 +124,23 @@ class CartController extends Controller
         $user = Auth::user();
         if($user)
         {
-            $userOrders  = $user->orders()->get();
-            return response()->json(['userOrders'=>$userOrders]);
+            $userOrders  = $user->orders()->with('product')->get();
+            return response()->json(['userOrders'=>$userOrders , $user]);
         }
         return response()->json('error get orders' , 401);
     }
+
+//    public function getUserOrders(Request $request)
+//    {
+//        $user = Auth::user();
+//        if ($user) {
+//            $userOrders = $user->orders()->with('product')->get();
+//            return response()->json(['userOrders' => $userOrders, 'user' => $user]);
+//        }
+//        return response()->json('error get orders', 401);
+//    }
+//
+
     private  function AddToUserCart ($product_id , $ipAddress , $user , $quantity = 1)
     {
         $product = User_basket::where('product_id' ,$product_id)
@@ -126,31 +163,56 @@ class CartController extends Controller
         return $product;
     }
 
-    private function createOrder( $user , $item , $ipAddress)
+    private function createOrder( $user , $item , $ipAddress  , $originProduct , $onlineOrder)
     {
+
+        $discount = config('globals.discount');
+
         return  Order::create([
             "email"=>$user->email,
             "product_id"=>$item->product_id,
             "ip_address"=>$ipAddress,
+            "discount"=>$discount,
+            "price"=>$originProduct->price,
+            "totalPrice"=>$item->quantity * $originProduct->price ,
             "quantity"=>$item->quantity,
             "user_id"=>$user->id,
+            "payment_method"=>"online",
+            "status"=>"confirmed",
+            "OnlineOrderId"=>$onlineOrder->id,
         ]);
     }
 
     private function manageOrder($user , $ipAddress)
     {
+
         $userCart = $this->getUserCart($user);
+
+
+        $discount = $userCart->count()>14 ? 7 : $userCart->count() * 0.5;
+        $totalAmount = $this->totalAmount($userCart);
+
+      $onlineOrder =   OnlineOrders::create([
+            'status'=>'confirmed',
+            'user_id'=>$user->id,
+            "amount"=>$totalAmount,
+            "TotalDiscount"=>$discount
+        ]);
+//        return response($userCart);
         foreach ($userCart as $item)
         {
-            $product = Order::where('product_id' , $item->product_id)
-                ->where("user_id", $user->id)
+//            return response()->json($userCart)
+            $quantity = $item->quantity;
+            $originProduct = Product::where('id' , $item->product_id)
                 ->first();
 
-            if($product)
+            (new OrderController)->MinusQuantityOfProductWhenPaymentComplete($item , $originProduct);
+            $originProduct->decrement('quantity' , $quantity);
             {
-              return   $item->increment("quantity" ,$item->quantity);
+                 $this->createOrder($user , $item , $ipAddress   , $originProduct , $onlineOrder);
+                 $item->delete();
             }
-                return $this->createOrder($user , $item , $ipAddress);
+
         }
     }
     public function removeUserCartAfterPayment(Request $request )
@@ -159,7 +221,8 @@ class CartController extends Controller
         $ipAddress = $request->getClientIp();
         if($user)
         {
-            $this->manageOrder($user , $ipAddress);
+
+         return     $this->manageOrder($user , $ipAddress);
             $user->basket()->delete();
             return response()->json( true)  ;
         }
@@ -216,11 +279,7 @@ class CartController extends Controller
         return $product;
     }
 
-
-
-
-
-        private function getUserCart ($user)
+        public function getUserCart ($user)
         {
            return User_basket::where('user_id', $user->id)->get();
         }
@@ -228,4 +287,29 @@ class CartController extends Controller
     {
         return Guest_basket::where('ip_address',$ipAddress)->get();
     }
+
+    private function MinusQuantityOfProduct($product , $quantityToMinus)
+    {
+         $product->decrement('quantity',$quantityToMinus);
+    }
+
+
+    public static function  totalAmount($Basket)
+    {
+        $total = 0 ;
+
+        foreach ($Basket as $item)
+        {
+            $product = Product::where('id',$item->product_id)->first();
+            $total +=( $product->price * $item->quantity);
+        }
+
+        return $total ;
+    }
 }
+
+
+
+
+
+

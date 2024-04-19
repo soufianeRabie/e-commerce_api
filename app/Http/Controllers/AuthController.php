@@ -16,6 +16,11 @@ class AuthController extends Controller
            $data = $request->validate([
                    'email' => ['bail', 'required', 'email', 'min:3', 'max:50', 'unique:users'],
                    'password' => ['bail', 'required', 'string', 'min:6'],
+                   'address' => ['bail', 'required', 'string', 'min:10'],
+                   'firstName' => ['bail', 'required', 'string', 'min:3'],
+                   'lastName' => ['bail', 'required', 'string', 'min:3'],
+                   'phone' => ['bail', 'required', 'string', 'min:6'],
+                   'city' => ['bail', 'required', 'string', 'min:6'],
                ]
            );
        }catch (\Illuminate\Validation\ValidationException $e) {
@@ -76,7 +81,7 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        $user = $user->only(['id', 'email', 'role']);
+        $user = $user->makeHidden(['created_at', 'updated_at' ,'deleted_at']);
 
         return response()->json($user);
     }

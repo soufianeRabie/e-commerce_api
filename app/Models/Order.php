@@ -14,7 +14,35 @@ class Order extends Model
         "email",
         "product_id",
         "ip_address",
+        "discount",
         "quantity",
-        "user_id"
+        "user_id",
+        "deliveriesId",
+        "payment_method",
+        "status",
+        "totalPrice",
+        "price",
+        "OnlineOrderId",
     ];
+
+
+    public function user()
+    {
+        return $this->hasOne(User::class , 'id' , 'user_id');
+    }
+    public function product()
+    {
+        return $this->hasOne(Product::class , 'id' , 'product_id');
+    }
+    public function delivery()
+    {
+        return $this->hasOne(Delivery::class , 'id' , 'deliveriesId');
+    }
+
+    public function onlineOrder()
+    {
+        return $this->hasOne(OnlineOrders::class , 'id' , 'OnlineOrdersId');
+    }
+
 }
+

@@ -15,7 +15,8 @@ class ProductResource extends JsonResource
     public function toArray(Request $request): array
     {
         $values = parent::toArray($request);
-        $values['image'] =  url("storage/".$values['image']);
+        $images = $values['images'];
+
         unset($values['created_at'], $values['updated_at'], $values['deleted_at']);
         return $values;
     }
