@@ -20,7 +20,7 @@ class AuthController extends Controller
                    'firstName' => ['bail', 'required', 'string', 'min:3'],
                    'lastName' => ['bail', 'required', 'string', 'min:3'],
                    'phone' => ['bail', 'required', 'string', 'min:6'],
-                   'city' => ['bail', 'required', 'string', 'min:6'],
+                   'city' => ['bail', 'required', 'string', 'min:3'],
                ]
            );
        }catch (\Illuminate\Validation\ValidationException $e) {

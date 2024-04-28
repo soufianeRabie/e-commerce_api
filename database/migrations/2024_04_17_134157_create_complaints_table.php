@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('complaints', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->cascadeOnDelete();
-            $table->string('address_id')->nullable();
+            $table->string('address_ip')->nullable();
             $table->string('message');
             $table->timestamps();
         });
