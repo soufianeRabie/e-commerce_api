@@ -20,15 +20,15 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('init', [AuthController::class, 'user']);
-    Route::post('logout', [AuthController::class, 'logout']);
-    Route::get("/addGuestCartToUser" ,[\App\Http\Controllers\CartController::class , "addGuestCartToUser"]);
-    Route::get('/get-cart',[\App\Http\Controllers\CartController::class , "getCart"]);
-    Route::get('/getUserCart' ,[\App\Http\Controllers\CartController::class , "UserCart"]) ;
-    Route::post('/create-payment-intent', [\App\Http\Controllers\PaymentIntentController::class , 'createPaymentIntent']);
-    Route::get('/removeUserCartAfterPayment', [\App\Http\Controllers\CartController::class , 'removeUserCartAfterPayment']);
-    Route::get('/GetUserOrders', [\App\Http\Controllers\CartController::class , 'getUserOrders']);
+Route::middleware(['auth:sanctum','isAdmin'])->group(function () {
+    Route::get('init', [AuthController::class, 'user'])->withoutMiddleware('isAdmin');
+    Route::post('logout', [AuthController::class, 'logout'])->withoutMiddleware('isAdmin');
+    Route::get("/addGuestCartToUser" ,[\App\Http\Controllers\CartController::class , "addGuestCartToUser"])->withoutMiddleware('isAdmin');
+    Route::get('/get-cart',[\App\Http\Controllers\CartController::class , "getCart"])->withoutMiddleware('isAdmin');
+    Route::get('/getUserCart' ,[\App\Http\Controllers\CartController::class , "UserCart"])->withoutMiddleware('isAdmin') ;
+    Route::post('/create-payment-intent', [\App\Http\Controllers\PaymentIntentController::class , 'createPaymentIntent'])->withoutMiddleware('isAdmin');
+    Route::get('/removeUserCartAfterPayment', [\App\Http\Controllers\CartController::class , 'removeUserCartAfterPayment'])->withoutMiddleware('isAdmin');
+    Route::get('/GetUserOrders', [\App\Http\Controllers\CartController::class , 'getUserOrders'])->withoutMiddleware('isAdmin');
     Route::post('/addProduct' , [\App\Http\Controllers\ProductController::class ,'store']);
     Route::put('/editProduct/{product}' , [\App\Http\Controllers\ProductController::class ,'update']);
     Route::delete('/product/{product}' , [\App\Http\Controllers\ProductController::class ,'destroy']);
